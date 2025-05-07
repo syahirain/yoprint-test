@@ -4,11 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\SSEController;
 use App\Models\File;
-
 use Illuminate\Support\Facades\Redis;
 
 Route::get('/redis-test', function () {
-    Redis::set('test', 'Hello from Docker Redis!');
+    Redis::set('test', 'Hello from Redis!');
     return Redis::get('test');
 });
 

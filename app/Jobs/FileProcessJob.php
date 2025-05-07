@@ -1,10 +1,10 @@
 <?php
-
 namespace App\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use League\Csv\Reader;
 use App\Models\File;
 use App\Models\Product;
 
@@ -32,30 +32,27 @@ class FileProcessJob implements ShouldQueue
         $fullPath = Storage::disk('local')->path($filePath);
 
         try{ 
-            if (($handle = fopen($fullPath, 'r')) !== false) {
-                $header = fgetcsv($handle); // First row is the header
-            
-                while (($row = fgetcsv($handle)) !== false) {
-                    $data = array_combine($header, $row);
-                    //print_r($data);
+            $csv = Reader::createFromPath($fullPath, 'r');
+            $csv->setHeaderOffset(0); 
+            $records = $csv->getRecords();
 
-                    Product::updateOrCreate([
-                        ['key' => $data['UNIQUE_KEY']], 
-                        [
-                            'title' => $data['PRODUCT_TITLE'], 
-                            'description' => $data['PRODUCT_DESCRIPTION'],
-                            'style' => $data['STYLE#'], 
-                            'sanmar_mainframe_color' => $data['SANMAR_MAINFRAME_COLOR'],
-                            'size' => $data['SIZE'], 
-                            'color_name' => $data['COLOR_NAME'],
-                            'piece_price' => $data['PIECE_PRICE']
-                        ]
-                    ]);
-                }
-            
-                fclose($handle);
-            } else {
-                throw new \Exception("Failed to open the file.");
+            foreach ($records as $record) {   
+                if(!isset($record['UNIQUE_KEY'])){
+                    throw new \Exception("Invalid csv format");
+                } 
+
+                Product::updateOrCreate(
+                    ['key' => $record['UNIQUE_KEY']],
+                    [
+                        'title' => $record['PRODUCT_TITLE'],
+                        'description' => $record['PRODUCT_DESCRIPTION'],
+                        'style' => $record['STYLE#'],
+                        'sanmar_mainframe_color' => $record['SANMAR_MAINFRAME_COLOR'],
+                        'size' => $record['SIZE'],
+                        'color_name' => $record['COLOR_NAME'],
+                        'piece_price' => $record['PIECE_PRICE']
+                    ]
+                );
             }
 
             $file->status = "completed";

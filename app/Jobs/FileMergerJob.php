@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,7 +29,6 @@ class FileMergerJob implements ShouldQueue
 
         try{
             $finalPath = "uploads/{$file->uuid}.{$file->extension}";
-            Storage::put($finalPath, '');  // Create an empty file first if needed
             
             // Sort and merge chunks
             for ($i = 0; $i < $file->total_chunks; $i++) {
@@ -38,18 +36,28 @@ class FileMergerJob implements ShouldQueue
                 
                 // Check if the chunk exists before merging
                 if (Storage::exists($chunkFile)) {
-                    // Append each chunk directly to the final file
                     $chunkData = Storage::get($chunkFile);
-                    Storage::append($finalPath, $chunkData);  // This appends the chunk to the final file
+
+                    if($i === 0){
+                        Storage::put($finalPath, $chunkData);
+                    }else{
+                        // Append each chunk directly to the final file
+                        Storage::append($finalPath, $chunkData);  // This appends the chunk to the final file
+                    }
                 } else {
                     throw new \Exception("Missing chunk: {$chunkFile}");
                 }
             }
+            
+            // Clean up any non-UTF-8 characters
+            $originalContent = Storage::get($finalPath);
+            $convertedContent = mb_convert_encoding($originalContent, 'UTF-8', 'UTF-8');
+            Storage::put($finalPath, $convertedContent);
 
             $file->status = "ready";
             $file->save();
 
-            // Optionally clean up
+            // Delete chunk files permanently
             Storage::deleteDirectory("chunks/{$file->uuid}");
         } catch(\Exception $e) {
             \Log::error("[FAIL MERGE][ID:$file->id] ".$e->getMessage());

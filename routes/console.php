@@ -8,4 +8,4 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('merge:scan-new-files')->everyMinute();
+Schedule::command('app:scan-files')->everyMinute();
